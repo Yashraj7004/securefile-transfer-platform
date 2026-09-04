@@ -1,0 +1,22 @@
+{
+  "name": "securefile-platform",
+  "version": "1.0.0",
+  "description": "SecureFile Transfer Platform - Production-Style Full-Stack Encrypted File Storage and Sharing",
+  "scripts": {
+    "install:all": "cd server && npm install && cd ../client && npm install",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm run dev",
+    "test": "cd server && npm test",
+    "build:client": "cd client && npm run build"
+  },
+  "keywords": [
+    "file-transfer",
+    "encryption",
+    "aes-256",
+    "react",
+    "express",
+    "mongodb"
+  ],
+  "author": "",
+  "license": "ISC"
+}

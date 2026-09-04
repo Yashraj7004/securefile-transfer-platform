@@ -1,0 +1,11 @@
+node_modules/
+.env
+dist/
+build/
+server/storage/encrypted/*
+server/storage/temp/*
+!server/storage/encrypted/.gitkeep
+!server/storage/temp/.gitkeep
+coverage/
+*.log
+.DS_Store

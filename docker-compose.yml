@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:8.0
+    container_name: securefile-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - securefile-network
+
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: securefile-api
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - MONGODB_URI=mongodb://mongodb:27017/securefile_db
+      - JWT_SECRET=production_jwt_secret_securefile_transfer_2026
+      - JWT_EXPIRES_IN=7d
+      - FILE_ENCRYPTION_KEY=01234567890123456789012345678901
+      - UPLOAD_DIR=./storage
+      - MAX_FILE_SIZE=524288000
+      - CLIENT_URL=http://localhost:5173
+      - NODE_ENV=production
+    volumes:
+      - file-storage:/app/storage
+    depends_on:
+      - mongodb
+    networks:
+      - securefile-network
+
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: securefile-web
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - securefile-network
+
+volumes:
+  mongo-data:
+  file-storage:
+
+networks:
+  securefile-network:
+    driver: bridge
