@@ -56,19 +56,18 @@ class LocalStorageService {
         reject(err);
       });
 
-      writeStream.on('finish', () => {
+      writeStream.on('finish', async () => {
         // Sync encrypted file to Vercel Blob if configured
         if (process.env.BLOB_READ_WRITE_TOKEN) {
           try {
             const vercelBlob = require('@vercel/blob');
-            vercelBlob
-              .put(`encrypted/${filename}`, fs.readFileSync(targetPath), {
-                access: 'private',
-                addRandomSuffix: false
-              })
-              .catch((err) => logger.warn(`Vercel Blob upload note: ${err.message}`));
+            await vercelBlob.put(`encrypted/${filename}`, fs.readFileSync(targetPath), {
+              access: 'private',
+              addRandomSuffix: false,
+              allowOverwrite: true
+            });
           } catch (e) {
-            // Ignored
+            logger.warn(`Vercel Blob upload note: ${e.message}`);
           }
         }
 

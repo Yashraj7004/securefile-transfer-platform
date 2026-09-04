@@ -42,6 +42,9 @@ const LoginPage = () => {
     if (role === 'admin') {
       setEmail('admin@securefile.local');
       setPassword('Admin@12345');
+    } else if (role === 'stuti') {
+      setEmail('stuti@example.com');
+      setPassword('Password@123');
     } else if (role === 'alice') {
       setEmail('alice@example.com');
       setPassword('Alice@12345');
@@ -120,19 +123,27 @@ const LoginPage = () => {
         <p className="text-[11px] font-semibold text-slate-400 text-center uppercase tracking-wider mb-2.5">
           Quick Demo Autofill
         </p>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-1.5">
           <button
             type="button"
             onClick={() => fillTestCredentials('admin')}
-            className="p-2 text-xs font-medium rounded-xl border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 transition flex items-center justify-center gap-1"
+            className="p-1.5 text-xs font-medium rounded-xl border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 transition flex items-center justify-center gap-1"
           >
             <Key className="w-3 h-3" />
             Admin
           </button>
           <button
             type="button"
+            onClick={() => fillTestCredentials('stuti')}
+            className="p-1.5 text-xs font-medium rounded-xl border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition flex items-center justify-center gap-1"
+          >
+            <Key className="w-3 h-3" />
+            Stuti
+          </button>
+          <button
+            type="button"
             onClick={() => fillTestCredentials('alice')}
-            className="p-2 text-xs font-medium rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition flex items-center justify-center gap-1"
+            className="p-1.5 text-xs font-medium rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition flex items-center justify-center gap-1"
           >
             <Key className="w-3 h-3" />
             Alice
@@ -140,7 +151,7 @@ const LoginPage = () => {
           <button
             type="button"
             onClick={() => fillTestCredentials('user')}
-            className="p-2 text-xs font-medium rounded-xl border border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100 transition flex items-center justify-center gap-1"
+            className="p-1.5 text-xs font-medium rounded-xl border border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100 transition flex items-center justify-center gap-1"
           >
             <Key className="w-3 h-3" />
             User

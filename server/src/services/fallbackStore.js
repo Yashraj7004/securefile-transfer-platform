@@ -139,12 +139,12 @@ class FallbackStore {
     }
   }
 
-  async syncFromCloud() {
+  async syncFromCloud(force = false) {
     if (!process.env.BLOB_READ_WRITE_TOKEN || !vercelBlob) return;
 
-    // Prevent excessive concurrent cloud syncs (cache for 3 seconds)
+    // Prevent excessive concurrent cloud syncs (cache for 1 second)
     const now = Date.now();
-    if (now - this.lastCloudSync < 3000) return;
+    if (!force && now - this.lastCloudSync < 1000) return;
 
     if (this.syncPromise) return this.syncPromise;
 
@@ -158,10 +158,18 @@ class FallbackStore {
             for await (const chunk of res.stream) chunks.push(chunk);
             const cloudData = JSON.parse(Buffer.concat(chunks).toString());
 
-            // Merge cloud data with in-memory data
+            // Safely merge cloud data with in-memory data
             if (cloudData && Array.isArray(cloudData.users)) {
               for (const u of cloudData.users) {
-                const idx = this.data.users.findIndex((x) => x._id.toString() === u._id.toString() || x.email === u.email);
+                if (!u) continue;
+                const uId = (u._id || '').toString();
+                const uEmail = (u.email || '').toLowerCase();
+                const idx = this.data.users.findIndex((x) => {
+                  if (!x) return false;
+                  const xId = (x._id || '').toString();
+                  const xEmail = (x.email || '').toLowerCase();
+                  return (uId && xId && uId === xId) || (uEmail && xEmail && uEmail === xEmail);
+                });
                 if (idx === -1) {
                   this.data.users.push(u);
                 } else {
@@ -171,14 +179,18 @@ class FallbackStore {
             }
             if (cloudData && Array.isArray(cloudData.files)) {
               for (const f of cloudData.files) {
-                if (!this.data.files.find((x) => x._id.toString() === f._id.toString())) {
+                if (!f) continue;
+                const fId = (f._id || '').toString();
+                if (!this.data.files.find((x) => x && (x._id || '').toString() === fId)) {
                   this.data.files.push(f);
                 }
               }
             }
             if (cloudData && Array.isArray(cloudData.shares)) {
               for (const s of cloudData.shares) {
-                if (!this.data.shares.find((x) => x._id.toString() === s._id.toString())) {
+                if (!s) continue;
+                const sId = (s._id || '').toString();
+                if (!this.data.shares.find((x) => x && (x._id || '').toString() === sId)) {
                   this.data.shares.push(s);
                 }
               }
@@ -209,20 +221,23 @@ class FallbackStore {
       // Ignored
     }
 
-    // 2. Asynchronously upload to Vercel Blob for cross-container sync
+    // 2. Await upload to Vercel Blob with allowOverwrite: true
     if (process.env.BLOB_READ_WRITE_TOKEN && vercelBlob) {
-      vercelBlob
-        .put('securefile_db.json', JSON.stringify(this.data), {
+      try {
+        await vercelBlob.put('securefile_db.json', JSON.stringify(this.data), {
           access: 'private',
-          addRandomSuffix: false
-        })
-        .catch((err) => console.warn('Vercel Blob persist note:', err.message));
+          addRandomSuffix: false,
+          allowOverwrite: true
+        });
+      } catch (err) {
+        console.error('Vercel Blob persist error:', err.message);
+      }
     }
   }
 
   ensureSeedUsers() {
     // Admin user
-    if (!this.data.users.find((u) => u.email === 'admin@securefile.local')) {
+    if (!this.data.users.find((u) => u && u.email === 'admin@securefile.local')) {
       const adminSalt = bcrypt.genSaltSync(10);
       this.data.users.push({
         _id: '64a000000000000000000001',
@@ -239,7 +254,7 @@ class FallbackStore {
     }
 
     // Demo user
-    if (!this.data.users.find((u) => u.email === 'user@securefile.local')) {
+    if (!this.data.users.find((u) => u && u.email === 'user@securefile.local')) {
       const userSalt = bcrypt.genSaltSync(10);
       this.data.users.push({
         _id: '64a000000000000000000002',
@@ -256,13 +271,30 @@ class FallbackStore {
     }
 
     // Demo user Alice (commonly used in testing)
-    if (!this.data.users.find((u) => u.email === 'alice@example.com')) {
+    if (!this.data.users.find((u) => u && u.email === 'alice@example.com')) {
       const aliceSalt = bcrypt.genSaltSync(10);
       this.data.users.push({
         _id: '64a000000000000000000003',
         name: 'Alice Cooper',
         email: 'alice@example.com',
         password: bcrypt.hashSync('Alice@12345', aliceSalt),
+        role: 'user',
+        status: 'active',
+        storageUsed: 0,
+        storageLimit: 5368709120,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    // Demo user Stuti
+    if (!this.data.users.find((u) => u && u.email === 'stuti@example.com')) {
+      const stutiSalt = bcrypt.genSaltSync(10);
+      this.data.users.push({
+        _id: '64a000000000000000000004',
+        name: 'Stuti',
+        email: 'stuti@example.com',
+        password: bcrypt.hashSync('Password@123', stutiSalt),
         role: 'user',
         status: 'active',
         storageUsed: 0,
@@ -279,7 +311,7 @@ class FallbackStore {
     const doc = { ...user };
     doc._id = doc._id.toString();
     doc.comparePassword = async function (candidate) {
-      if (doc.email === 'alice@example.com') {
+      if (doc.email === 'alice@example.com' || doc.email === 'stuti@example.com') {
         if (
           candidate === 'Alice@12345' ||
           candidate === 'Password@123' ||
@@ -409,16 +441,18 @@ class FallbackStore {
           (async () => {
             // Check local first, if not found sync from cloud
             let found = self.data.users.find((u) => {
-              if (query.email && u.email.toLowerCase() !== query.email.toLowerCase()) return false;
-              if (query._id && u._id.toString() !== query._id.toString()) return false;
+              if (!u) return false;
+              if (query.email && (u.email || '').toLowerCase() !== query.email.toLowerCase()) return false;
+              if (query._id && (u._id || '').toString() !== (query._id || '').toString()) return false;
               return true;
             });
 
             if (!found && process.env.BLOB_READ_WRITE_TOKEN) {
-              await self.syncFromCloud();
+              await self.syncFromCloud(true);
               found = self.data.users.find((u) => {
-                if (query.email && u.email.toLowerCase() !== query.email.toLowerCase()) return false;
-                if (query._id && u._id.toString() !== query._id.toString()) return false;
+                if (!u) return false;
+                if (query.email && (u.email || '').toLowerCase() !== query.email.toLowerCase()) return false;
+                if (query._id && (u._id || '').toString() !== (query._id || '').toString()) return false;
                 return true;
               });
             }
@@ -431,10 +465,10 @@ class FallbackStore {
       findById(id) {
         return new QueryChain(
           (async () => {
-            let found = self.data.users.find((u) => u._id.toString() === (id || '').toString());
+            let found = self.data.users.find((u) => u && (u._id || '').toString() === (id || '').toString());
             if (!found && process.env.BLOB_READ_WRITE_TOKEN) {
-              await self.syncFromCloud();
-              found = self.data.users.find((u) => u._id.toString() === (id || '').toString());
+              await self.syncFromCloud(true);
+              found = self.data.users.find((u) => u && (u._id || '').toString() === (id || '').toString());
             }
             return self.wrapUser(found);
           })()
@@ -448,6 +482,7 @@ class FallbackStore {
               await self.syncFromCloud();
             }
             let list = self.data.users.filter((u) => {
+              if (!u) return false;
               if (query.status && u.status !== query.status) return false;
               if (query.role && u.role !== query.role) return false;
               if (query.$or) {
@@ -472,10 +507,10 @@ class FallbackStore {
       },
 
       async findByIdAndUpdate(id, update, options = {}) {
-        let index = self.data.users.findIndex((u) => u._id.toString() === (id || '').toString());
+        let index = self.data.users.findIndex((u) => u && (u._id || '').toString() === (id || '').toString());
         if (index === -1 && process.env.BLOB_READ_WRITE_TOKEN) {
-          await self.syncFromCloud();
-          index = self.data.users.findIndex((u) => u._id.toString() === (id || '').toString());
+          await self.syncFromCloud(true);
+          index = self.data.users.findIndex((u) => u && (u._id || '').toString() === (id || '').toString());
         }
         if (index === -1) return null;
 
@@ -502,7 +537,7 @@ class FallbackStore {
         if (process.env.BLOB_READ_WRITE_TOKEN) {
           await self.syncFromCloud();
         }
-        let list = self.data.users;
+        let list = self.data.users.filter(Boolean);
         if (query.status) {
           list = list.filter((u) => u.status === query.status);
         }
@@ -514,7 +549,7 @@ class FallbackStore {
 
       async create(data) {
         if (process.env.BLOB_READ_WRITE_TOKEN) {
-          await self.syncFromCloud();
+          await self.syncFromCloud(true);
         }
         const salt = bcrypt.genSaltSync(10);
         const hashedPassword = bcrypt.hashSync(data.password, salt);
@@ -530,7 +565,12 @@ class FallbackStore {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
-        self.data.users.push(user);
+        const existingIdx = self.data.users.findIndex((u) => u && (u.email || '').toLowerCase() === user.email);
+        if (existingIdx !== -1) {
+          self.data.users[existingIdx] = user;
+        } else {
+          self.data.users.push(user);
+        }
         await self.persist();
         return self.wrapUser(user);
       }
