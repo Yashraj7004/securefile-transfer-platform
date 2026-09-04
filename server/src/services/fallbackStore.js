@@ -1,4 +1,4 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
@@ -179,10 +179,19 @@ class FallbackStore {
 
   wrapUser(user) {
     if (!user) return null;
+    const self = this;
     const doc = { ...user };
     doc._id = doc._id.toString();
     doc.comparePassword = async function (candidate) {
       return bcrypt.compare(candidate, doc.password);
+    };
+    doc.save = async function () {
+      const idx = self.data.users.findIndex((u) => u._id.toString() === doc._id.toString());
+      if (idx !== -1) {
+        self.data.users[idx] = { ...doc };
+        self.persist();
+      }
+      return doc;
     };
     doc.toJSON = function () {
       const clone = { ...doc };
@@ -195,9 +204,37 @@ class FallbackStore {
     return doc;
   }
 
+  wrapFile(file) {
+    if (!file) return null;
+    const self = this;
+    const doc = { ...file };
+    doc._id = doc._id.toString();
+    doc.save = async function () {
+      const idx = self.data.files.findIndex((f) => f._id.toString() === doc._id.toString());
+      if (idx !== -1) {
+        self.data.files[idx] = { ...doc };
+        self.persist();
+      }
+      return doc;
+    };
+    doc.toObject = function () {
+      return { ...doc };
+    };
+    return doc;
+  }
+
   wrapShare(share) {
     if (!share) return null;
+    const self = this;
     const doc = { ...share };
+    doc.save = async function () {
+      const idx = self.data.shares.findIndex((s) => s._id.toString() === doc._id.toString());
+      if (idx !== -1) {
+        self.data.shares[idx] = { ...doc };
+        self.persist();
+      }
+      return doc;
+    };
     doc.isValid = function () {
       if (!doc.isActive) return false;
       if (doc.expiresAt && new Date() > new Date(doc.expiresAt)) return false;
@@ -373,7 +410,7 @@ class FallbackStore {
         return new QueryChain(
           (async () => {
             const found = self.data.files.find((f) => f._id.toString() === (id || '').toString());
-            return found ? { ...found } : null;
+            return self.wrapFile(found);
           })()
         );
       },
@@ -396,7 +433,7 @@ class FallbackStore {
               }
               return true;
             });
-            return list.map((f) => ({ ...f }));
+            return list.map((f) => self.wrapFile(f));
           })()
         );
       },
@@ -418,7 +455,7 @@ class FallbackStore {
         };
         self.data.files.push(file);
         self.persist();
-        return { ...file };
+        return self.wrapFile(file);
       },
 
       async findByIdAndDelete(id) {
