@@ -8,6 +8,7 @@ let mongod = null;
 const connectDB = async () => {
   try {
     mongoose.set('strictQuery', true);
+    mongoose.set('bufferCommands', false);
 
     // If running in Vercel serverless environment without a remote MongoDB URI configured
     if (process.env.VERCEL && (!process.env.MONGODB_URI || process.env.MONGODB_URI.includes('localhost'))) {
