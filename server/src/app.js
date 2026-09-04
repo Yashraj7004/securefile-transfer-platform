@@ -15,6 +15,9 @@ const dashboardRoutes = require('./routes/dashboardRoutes');
 
 const app = express();
 
+// Trust proxy for Vercel / reverse proxy environments
+app.set('trust proxy', 1);
+
 // Security Headers
 app.use(
   helmet({
