@@ -65,6 +65,21 @@ const fileSchema = new mongoose.Schema(
 fileSchema.index({ owner: 1, createdAt: -1 });
 fileSchema.index({ owner: 1, originalName: 1 });
 
-const File = mongoose.model('File', fileSchema);
+const fallbackStore = require('../services/fallbackStore');
+
+const MongooseFile = mongoose.model('File', fileSchema);
+
+const File = new Proxy(MongooseFile, {
+  get(target, prop, receiver) {
+    if (mongoose.connection.readyState === 1) {
+      return Reflect.get(target, prop, receiver);
+    }
+    const fallback = fallbackStore.File;
+    if (prop in fallback) {
+      return typeof fallback[prop] === 'function' ? fallback[prop].bind(fallback) : fallback[prop];
+    }
+    return Reflect.get(target, prop, receiver);
+  }
+});
 
 module.exports = File;

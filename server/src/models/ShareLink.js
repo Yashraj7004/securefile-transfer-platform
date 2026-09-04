@@ -69,6 +69,21 @@ shareLinkSchema.methods.isLimitExceeded = function () {
   return Boolean(this.maxDownloads !== null && this.downloadCount >= this.maxDownloads);
 };
 
-const ShareLink = mongoose.model('ShareLink', shareLinkSchema);
+const fallbackStore = require('../services/fallbackStore');
+
+const MongooseShareLink = mongoose.model('ShareLink', shareLinkSchema);
+
+const ShareLink = new Proxy(MongooseShareLink, {
+  get(target, prop, receiver) {
+    if (mongoose.connection.readyState === 1) {
+      return Reflect.get(target, prop, receiver);
+    }
+    const fallback = fallbackStore.ShareLink;
+    if (prop in fallback) {
+      return typeof fallback[prop] === 'function' ? fallback[prop].bind(fallback) : fallback[prop];
+    }
+    return Reflect.get(target, prop, receiver);
+  }
+});
 
 module.exports = ShareLink;

@@ -68,6 +68,21 @@ userSchema.methods.toJSON = function () {
   return user;
 };
 
-const User = mongoose.model('User', userSchema);
+const fallbackStore = require('../services/fallbackStore');
+
+const MongooseUser = mongoose.model('User', userSchema);
+
+const User = new Proxy(MongooseUser, {
+  get(target, prop, receiver) {
+    if (mongoose.connection.readyState === 1) {
+      return Reflect.get(target, prop, receiver);
+    }
+    const fallback = fallbackStore.User;
+    if (prop in fallback) {
+      return typeof fallback[prop] === 'function' ? fallback[prop].bind(fallback) : fallback[prop];
+    }
+    return Reflect.get(target, prop, receiver);
+  }
+});
 
 module.exports = User;
