@@ -9,3 +9,6 @@ server/storage/temp/*
 coverage/
 *.log
 .DS_Store
+
+.vercel
+.env*
