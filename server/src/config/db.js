@@ -9,6 +9,12 @@ const connectDB = async () => {
   try {
     mongoose.set('strictQuery', true);
 
+    // If running in Vercel serverless environment without a remote MongoDB URI configured
+    if (process.env.VERCEL && (!process.env.MONGODB_URI || process.env.MONGODB_URI.includes('localhost'))) {
+      logger.warn('Running on Vercel without remote MONGODB_URI configured. Set MONGODB_URI in Vercel settings to enable database operations.');
+      return;
+    }
+
     // Try connecting to configured MongoDB URI first with a short timeout
     await mongoose.connect(config.MONGODB_URI, {
       serverSelectionTimeoutMS: 2500
@@ -16,6 +22,12 @@ const connectDB = async () => {
     logger.info(`Connected to MongoDB at ${config.MONGODB_URI}`);
   } catch (err) {
     logger.warn(`Could not connect to external MongoDB at ${config.MONGODB_URI}: ${err.message}`);
+    
+    if (process.env.VERCEL) {
+      logger.warn('Skipping embedded MongoDB on Vercel serverless runtime.');
+      return;
+    }
+
     logger.info('Starting embedded in-memory MongoDB engine for zero-config development...');
 
     try {

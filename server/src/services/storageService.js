@@ -22,9 +22,13 @@ class LocalStorageService {
 
   initDirectories() {
     [this.baseDir, this.encryptedDir, this.tempDir].forEach((dir) => {
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-        logger.info(`Storage directory initialized: ${dir}`);
+      try {
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+          logger.info(`Storage directory initialized: ${dir}`);
+        }
+      } catch (err) {
+        logger.warn(`Could not create storage directory ${dir}: ${err.message}`);
       }
     });
   }
