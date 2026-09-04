@@ -11,7 +11,8 @@ const RegisterPage = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { register } = useAuth();
+  const [conflictError, setConflictError] = useState(false);
+  const { register, isAuthenticated, user, logout } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
 
@@ -28,6 +29,7 @@ const RegisterPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setConflictError(false);
 
     if (!name || !email || !password || !confirmPassword) {
       toast.warning('Please fill in all required fields');
@@ -44,18 +46,35 @@ const RegisterPage = () => {
       return;
     }
 
+    // If already logged in, log out existing session before creating new account
+    if (isAuthenticated) {
+      logout();
+    }
+
     setIsLoading(true);
     try {
-      await register(name, email, password, confirmPassword);
+      await register(name.trim(), email.trim().toLowerCase(), password, confirmPassword);
       toast.success('Account created successfully! Welcome to SecureFile.');
       navigate('/dashboard', { replace: true });
     } catch (err) {
+      if (err.response?.status === 409) {
+        setConflictError(true);
+      }
       const errorMsg =
         err.response?.data?.message || err.message || 'Registration failed. Please try again.';
       toast.error(errorMsg);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const fillExampleAccount = () => {
+    const randomNum = Math.floor(100 + Math.random() * 900);
+    setName(`User ${randomNum}`);
+    setEmail(`user_${randomNum}@example.com`);
+    setPassword('SecurePass@123');
+    setConfirmPassword('SecurePass@123');
+    setConflictError(false);
   };
 
   return (
@@ -66,6 +85,32 @@ const RegisterPage = () => {
           Get started with 5 GB free encrypted cloud storage
         </p>
       </div>
+
+      {isAuthenticated && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 flex items-center justify-between gap-2">
+          <span>Signed in as <strong>{user?.email}</strong>.</span>
+          <button
+            type="button"
+            onClick={logout}
+            className="text-blue-700 underline font-semibold text-xs"
+          >
+            Sign out
+          </button>
+        </div>
+      )}
+
+      {conflictError && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center justify-between gap-2">
+          <span>Account <strong>{email}</strong> already exists.</span>
+          <button
+            type="button"
+            onClick={() => navigate('/login', { state: { prefilledEmail: email } })}
+            className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold whitespace-nowrap transition"
+          >
+            Log In
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Full Name */}
@@ -163,6 +208,15 @@ const RegisterPage = () => {
         >
           Create Free Account
         </Button>
+
+        <button
+          type="button"
+          onClick={fillExampleAccount}
+          className="w-full mt-2 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 rounded-xl transition flex items-center justify-center gap-1.5"
+        >
+          <UserPlus className="w-3.5 h-3.5 text-slate-500" />
+          Auto-fill New Account Info
+        </button>
       </form>
 
       <p className="mt-6 text-center text-xs text-slate-500">

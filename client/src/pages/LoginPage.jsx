@@ -6,13 +6,13 @@ import Button from '../components/common/Button';
 import { Mail, Lock, LogIn, Key } from 'lucide-react';
 
 const LoginPage = () => {
-  const [email, setEmail] = useState('');
+  const location = useLocation();
+  const [email, setEmail] = useState(() => location.state?.prefilledEmail || '');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
-  const location = useLocation();
   const isExpired = new URLSearchParams(location.search).get('expired') === 'true';
 
   const from = location.state?.from?.pathname || '/dashboard';

@@ -94,7 +94,7 @@ class LocalStorageService {
         const vercelBlob = require('@vercel/blob');
         const { blobs } = await vercelBlob.list({ prefix: `encrypted/${filename}` });
         if (blobs && blobs.length > 0) {
-          const res = await vercelBlob.get(blobs[0].url, { access: 'private' });
+          const res = await vercelBlob.get(blobs[0].url, { access: 'private', useCache: false });
           if (res && res.stream) {
             const chunks = [];
             for await (const chunk of res.stream) chunks.push(chunk);

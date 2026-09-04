@@ -10,9 +10,10 @@ class AuthService {
   static generateToken(user) {
     return jwt.sign(
       {
-        id: user._id,
-        email: user.email,
-        role: user.role
+        id: (user._id || '').toString(),
+        name: user.name || '',
+        email: (user.email || '').toLowerCase(),
+        role: user.role || 'user'
       },
       config.JWT_SECRET,
       { expiresIn: config.JWT_EXPIRES_IN }
