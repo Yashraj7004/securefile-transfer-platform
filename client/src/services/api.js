@@ -1,7 +1,19 @@
 import axios from 'axios';
+import { getBasename } from '../utils/urlHelper';
+
+const getApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // When viewed from GitHub Pages, communicate with the live Vercel backend
+  if (typeof window !== 'undefined' && window.location.hostname.includes('github.io')) {
+    return 'https://securefile-transfer-platform.vercel.app/api';
+  }
+  return '/api';
+};
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json'
   }
@@ -24,16 +36,19 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
+      const base = getBasename();
+      const cleanPath = window.location.pathname.replace(base, '');
       const isPublicPath =
-        window.location.pathname.startsWith('/share/') ||
-        window.location.pathname === '/login' ||
-        window.location.pathname === '/register' ||
-        window.location.pathname === '/';
+        cleanPath.startsWith('/share/') ||
+        cleanPath === '/login' ||
+        cleanPath === '/register' ||
+        cleanPath === '' ||
+        cleanPath === '/';
 
       if (!isPublicPath) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        window.location.href = '/login?expired=true';
+        window.location.href = `${base}/login?expired=true`;
       }
     }
     return Promise.reject(error);

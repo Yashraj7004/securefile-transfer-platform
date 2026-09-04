@@ -4,6 +4,7 @@ import Button from '../common/Button';
 import { shareService } from '../../services/shareService';
 import { useToast } from '../../context/ToastContext';
 import { Copy, Check, Lock, Calendar, Download, KeyRound, ExternalLink } from 'lucide-react';
+import { getPublicShareUrl } from '../../utils/urlHelper';
 
 const ShareModal = ({ isOpen, onClose, file }) => {
   const [expiration, setExpiration] = useState('7d');
@@ -51,7 +52,7 @@ const ShareModal = ({ isOpen, onClose, file }) => {
       };
 
       const res = await shareService.createShare(payload);
-      const shareUrl = `${window.location.origin}/share/${res.data.token}`;
+      const shareUrl = getPublicShareUrl(res.data.token);
       setGeneratedLink(shareUrl);
       toast.success('Share link generated successfully!');
     } catch (err) {

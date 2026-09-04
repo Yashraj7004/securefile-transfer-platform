@@ -18,6 +18,7 @@ import {
   ToggleLeft,
   ToggleRight
 } from 'lucide-react';
+import { getPublicShareUrl } from '../utils/urlHelper';
 
 const SharedFilesPage = () => {
   const [shares, setShares] = useState([]);
@@ -44,7 +45,7 @@ const SharedFilesPage = () => {
   }, []);
 
   const handleCopy = (token) => {
-    const url = `${window.location.origin}/share/${token}`;
+    const url = getPublicShareUrl(token);
     navigator.clipboard.writeText(url);
     setCopiedToken(token);
     toast.success('Share link copied to clipboard!');

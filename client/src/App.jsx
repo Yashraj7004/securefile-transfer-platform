@@ -26,10 +26,11 @@ import ProfilePage from './pages/ProfilePage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import AdminFilesPage from './pages/AdminFilesPage';
+import { getBasename } from './utils/urlHelper';
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={getBasename()}>
       <ToastProvider>
         <AuthProvider>
           <Routes>
