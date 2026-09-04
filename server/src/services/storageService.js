@@ -57,6 +57,21 @@ class LocalStorageService {
       });
 
       writeStream.on('finish', () => {
+        // Sync encrypted file to Vercel Blob if configured
+        if (process.env.BLOB_READ_WRITE_TOKEN) {
+          try {
+            const vercelBlob = require('@vercel/blob');
+            vercelBlob
+              .put(`encrypted/${filename}`, fs.readFileSync(targetPath), {
+                access: 'private',
+                addRandomSuffix: false
+              })
+              .catch((err) => logger.warn(`Vercel Blob upload note: ${err.message}`));
+          } catch (e) {
+            // Ignored
+          }
+        }
+
         resolve({
           storedName: filename,
           path: path.relative(config.UPLOAD_DIR, targetPath).replace(/\\/g, '/'),
@@ -66,6 +81,33 @@ class LocalStorageService {
 
       readStream.pipe(writeStream);
     });
+  }
+
+  /**
+   * Ensure file is present locally (fetches from Vercel Blob if missing in ephemeral container)
+   */
+  async ensureFileLocal(filename) {
+    const filePath = path.join(this.encryptedDir, filename);
+    if (fs.existsSync(filePath)) return filePath;
+
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        const vercelBlob = require('@vercel/blob');
+        const { blobs } = await vercelBlob.list({ prefix: `encrypted/${filename}` });
+        if (blobs && blobs.length > 0) {
+          const res = await vercelBlob.get(blobs[0].url, { access: 'private' });
+          if (res && res.stream) {
+            const chunks = [];
+            for await (const chunk of res.stream) chunks.push(chunk);
+            fs.writeFileSync(filePath, Buffer.concat(chunks));
+            return filePath;
+          }
+        }
+      } catch (err) {
+        logger.warn(`Failed to restore ${filename} from Vercel Blob: ${err.message}`);
+      }
+    }
+    return filePath;
   }
 
   /**

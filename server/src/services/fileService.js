@@ -160,6 +160,9 @@ class FileService {
       }
     }
 
+    // Ensure file is present locally (restores from Vercel Blob if needed)
+    await storageService.ensureFileLocal(file.storedName);
+
     // Get encrypted stream from storage
     const encryptedStream = storageService.getReadStream(file.storedName);
     const iv = Buffer.from(file.encryptionMetadata.iv, 'hex');
