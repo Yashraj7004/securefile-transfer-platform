@@ -14,7 +14,9 @@ import {
   KeyRound,
   CheckCircle2,
   Clock,
-  ExternalLink
+  ExternalLink,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 const formatBytes = (bytes, decimals = 1) => {
@@ -30,8 +32,10 @@ const PublicSharePage = () => {
   const { token } = useParams();
   const [shareInfo, setShareInfo] = useState(null);
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isPasswordVerified, setIsPasswordVerified] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const toast = useToast();
@@ -58,35 +62,38 @@ const PublicSharePage = () => {
     }
   }, [token]);
 
+  const executeDownload = async (passToUse = password) => {
+    setIsDownloading(true);
+    try {
+      await shareService.downloadSharedFile(token, passToUse, shareInfo?.fileName);
+      toast.success('File downloaded successfully!');
+      // Update local download count
+      setShareInfo((prev) => (prev ? { ...prev, downloadCount: (prev.downloadCount || 0) + 1 } : prev));
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Download failed';
+      toast.error(msg);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   const handleVerifyPassword = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!password) {
       toast.warning('Please enter the access password');
       return;
     }
 
+    setIsVerifying(true);
     try {
       await shareService.verifyPassword(token, password);
       setIsPasswordVerified(true);
-      toast.success('Password verified! You can now download the file.');
+      toast.success('Password verified! Initiating download...');
+      await executeDownload(password);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Incorrect password');
-    }
-  };
-
-  const handleDownload = async () => {
-    setIsDownloading(true);
-    try {
-      await shareService.downloadSharedFile(token, password, shareInfo.fileName);
-      toast.success('File download started!');
-      // Update local download count
-      setShareInfo((prev) => (prev ? { ...prev, downloadCount: prev.downloadCount + 1 } : prev));
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Download failed';
-      toast.error(msg);
-      setErrorMsg(msg);
     } finally {
-      setIsDownloading(false);
+      setIsVerifying(false);
     }
   };
 
@@ -181,32 +188,55 @@ const PublicSharePage = () => {
                     <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                       Passphrase
                     </label>
-                    <input
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Enter file passphrase..."
-                      className="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-250 rounded-xl text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter file passphrase..."
+                        className="w-full pl-3 pr-10 py-2.5 text-xs bg-slate-50 border border-slate-250 rounded-xl text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                        title={showPassword ? 'Hide passphrase' : 'Show passphrase'}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
 
-                  <Button type="submit" variant="primary" size="md" className="w-full">
-                    Unlock Download
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="md"
+                    className="w-full"
+                    isLoading={isVerifying || isDownloading}
+                  >
+                    {isVerifying ? 'Verifying Password...' : isDownloading ? 'Downloading Decrypted File...' : 'Unlock & Download'}
                   </Button>
                 </form>
               ) : (
                 /* Verified / Unprotected: Download Button */
                 <div className="space-y-6">
+                  {shareInfo.passwordProtected && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200/80 rounded-2xl flex items-center gap-2.5 text-emerald-800">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="text-xs font-medium">Password verified. Ready for download.</span>
+                    </div>
+                  )}
+
                   <Button
                     variant="primary"
                     size="lg"
                     className="w-full"
                     icon={Download}
                     isLoading={isDownloading}
-                    onClick={handleDownload}
+                    onClick={() => executeDownload(password)}
                   >
-                    Download Decrypted File
+                    {isDownloading ? 'Downloading Decrypted File...' : 'Download Decrypted File'}
                   </Button>
 
                   {/* Transfer Details Breakdown */}

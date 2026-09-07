@@ -23,9 +23,22 @@ export const shareService = {
 
   async downloadSharedFile(token, password = '', fallbackName = 'shared_file') {
     const query = password ? `?password=${encodeURIComponent(password)}` : '';
-    const response = await api.get(`/share/${token}/download${query}`, {
-      responseType: 'blob'
-    });
+    let response;
+    try {
+      response = await api.get(`/share/${token}/download${query}`, {
+        responseType: 'blob'
+      });
+    } catch (err) {
+      if (err.response && err.response.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          err.response.data = JSON.parse(text);
+        } catch {
+          // ignore
+        }
+      }
+      throw err;
+    }
 
     let fileName = fallbackName;
     const disposition = response.headers['content-disposition'];
